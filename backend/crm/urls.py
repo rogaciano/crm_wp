@@ -5,7 +5,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     CanalViewSet, UserViewSet, LeadViewSet, ContaViewSet,
-    ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet
+    ContatoViewSet, EstagioFunilViewSet, OportunidadeViewSet, AtividadeViewSet,
+    DiagnosticoViewSet
 )
 
 router = DefaultRouter()
@@ -17,6 +18,7 @@ router.register(r'contatos', ContatoViewSet, basename='contato')
 router.register(r'estagios-funil', EstagioFunilViewSet, basename='estagiofunil')
 router.register(r'oportunidades', OportunidadeViewSet, basename='oportunidade')
 router.register(r'atividades', AtividadeViewSet, basename='atividade')
+router.register(r'diagnosticos', DiagnosticoViewSet, basename='diagnostico')
 
 urlpatterns = [
     path('', include(router.urls)),

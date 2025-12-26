@@ -3,7 +3,10 @@ Configuração do Django Admin para CRM
 """
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade
+from .models import (
+    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado
+)
 
 
 @admin.register(Canal)
@@ -76,3 +79,32 @@ class AtividadeAdmin(admin.ModelAdmin):
     list_filter = ['tipo', 'status', 'data_criacao']
     search_fields = ['titulo', 'descricao']
     readonly_fields = ['data_criacao', 'data_atualizacao']
+
+
+class DiagnosticoRespostaInline(admin.TabularInline):
+    model = DiagnosticoResposta
+    extra = 1
+
+
+@admin.register(DiagnosticoPilar)
+class DiagnosticoPilarAdmin(admin.ModelAdmin):
+    list_display = ['nome', 'slug', 'ordem', 'cor']
+    search_fields = ['nome']
+    prepopulated_fields = {'slug': ('nome',)}
+
+
+@admin.register(DiagnosticoPergunta)
+class DiagnosticoPerguntaAdmin(admin.ModelAdmin):
+    list_display = ['texto', 'pilar', 'ordem']
+    list_filter = ['pilar']
+    search_fields = ['texto']
+    inlines = [DiagnosticoRespostaInline]
+
+
+@admin.register(DiagnosticoResultado)
+class DiagnosticoResultadoAdmin(admin.ModelAdmin):
+    list_display = ['lead', 'data_conclusao']
+    readonly_fields = ['lead', 'data_conclusao', 'respostas_detalhadas', 'pontuacao_por_pilar']
+    
+    def has_add_permission(self, request):
+        return False

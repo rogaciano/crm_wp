@@ -1,18 +1,22 @@
 """
 Views da API do CRM
 """
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade
+from .models import (
+    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado
+)
 from .serializers import (
     CanalSerializer, UserSerializer, LeadSerializer, ContaSerializer,
     ContatoSerializer, EstagioFunilSerializer, OportunidadeSerializer,
-    OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer
+    OportunidadeKanbanSerializer, AtividadeSerializer, LeadConversaoSerializer,
+    DiagnosticoPilarSerializer, DiagnosticoResultadoSerializer, DiagnosticoPublicSubmissionSerializer
 )
 from .permissions import HierarchyPermission, IsAdminUser
 
@@ -125,6 +129,9 @@ class LeadViewSet(viewsets.ModelViewSet):
                 # Marca o lead como convertido
                 lead.status = Lead.STATUS_CONVERTIDO
                 lead.save()
+                
+                # Vincula histórico de diagnósticos à nova Conta
+                DiagnosticoResultado.objects.filter(lead=lead).update(conta=conta)
                 
                 return Response({
                     'message': 'Lead convertido com sucesso',
@@ -318,3 +325,129 @@ class AtividadeViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(atividade)
         return Response(serializer.data)
+
+
+class DiagnosticoViewSet(viewsets.ModelViewSet):
+    """ViewSet para o Diagnóstico de Maturidade"""
+    queryset = DiagnosticoResultado.objects.all()
+    serializer_class = DiagnosticoResultadoSerializer
+    
+    def get_permissions(self):
+        """Define permissões: perguntas e submeter são públicos"""
+        if self.action in ['perguntas', 'submeter']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated(), HierarchyPermission()]
+
+    def get_queryset(self):
+        """Filtra resultados do diagnóstico baseado na hierarquia (após autenticado)"""
+        user = self.request.user
+        if not user.is_authenticated:
+            return DiagnosticoResultado.objects.none()
+            
+        if user.perfil == 'ADMIN':
+            return DiagnosticoResultado.objects.all()
+        elif user.perfil == 'RESPONSAVEL':
+            return DiagnosticoResultado.objects.filter(lead__proprietario__canal=user.canal)
+        else:
+            return DiagnosticoResultado.objects.filter(lead__proprietario=user)
+
+    @action(detail=False, methods=['get'])
+    def perguntas(self, request):
+        """Retorna todos os pilares, perguntas e respostas para o frontend público"""
+        pilares = DiagnosticoPilar.objects.all().prefetch_related('perguntas__respostas')
+        serializer = DiagnosticoPilarSerializer(pilares, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def submeter(self, request):
+        """Recebe as respostas do diagnóstico, cria o Lead e salva o resultado"""
+        serializer = DiagnosticoPublicSubmissionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        data = serializer.validated_data
+        respostas_ids = data['respostas_ids']
+        
+        # 1. Busca as respostas no banco para calcular a pontuação
+        respostas_objs = DiagnosticoResposta.objects.filter(
+            id__in=respostas_ids
+        ).select_related('pergunta__pilar')
+        
+        if not respostas_objs.exists():
+            return Response(
+                {'error': 'Nenhuma resposta válida encontrada'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Processa pontuações por pilar
+        pontuacao_por_pilar = {}
+        respostas_detalhadas = []
+        
+        for r in respostas_objs:
+            pilar_nome = r.pergunta.pilar.nome
+            if pilar_nome not in pontuacao_por_pilar:
+                pontuacao_por_pilar[pilar_nome] = {
+                    'soma': 0,
+                    'total_perguntas': 0,
+                    'cor': r.pergunta.pilar.cor
+                }
+            
+            pontuacao_por_pilar[pilar_nome]['soma'] += r.pontuacao
+            pontuacao_por_pilar[pilar_nome]['total_perguntas'] += 1
+            
+            respostas_detalhadas.append({
+                'pergunta': r.pergunta.texto,
+                'pilar': pilar_nome,
+                'resposta': r.texto,
+                'pontos': r.pontuacao,
+                'feedback': r.feedback
+            })
+
+        # Calcula a média (0-10) por pilar
+        resultado_final = {}
+        for pilar, dados in pontuacao_por_pilar.items():
+            resultado_final[pilar] = {
+                'score': round(dados['soma'] / dados['total_perguntas'], 1),
+                'cor': dados['cor']
+            }
+
+        try:
+            with transaction.atomic():
+                # 3. Cria ou busca o Lead (pelo e-mail)
+                admin_user = User.objects.filter(perfil='ADMIN', is_active=True).first()
+                
+                # Procura se já existe uma conta vinculada a esse e-mail via Contato
+                conta_existente = None
+                contato = Contato.objects.filter(email=data['email']).first()
+                if contato:
+                    conta_existente = contato.conta
+
+                lead, created = Lead.objects.update_or_create(
+                    email=data['email'],
+                    defaults={
+                        'nome': data['nome'],
+                        'telefone': data.get('telefone', ''),
+                        'empresa': data.get('empresa', ''),
+                        'fonte': 'Diagnóstico de Maturidade',
+                        'proprietario': admin_user
+                    }
+                )
+
+                # 4. Salva o resultado do diagnóstico
+                diagnostico = DiagnosticoResultado.objects.create(
+                    lead=lead,
+                    conta=conta_existente,  # Vincula à conta se o e-mail for de um cliente
+                    respostas_detalhadas=respostas_detalhadas,
+                    pontuacao_por_pilar=resultado_final
+                )
+
+                return Response({
+                    'message': 'Diagnóstico processado com sucesso',
+                    'lead_id': lead.id,
+                    'resultado': resultado_final
+                }, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            return Response(
+                {'error': f'Erro ao salvar diagnóstico: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

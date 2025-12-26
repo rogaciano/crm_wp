@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import axios from 'axios'
+import api from '@/services/api'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -15,7 +15,8 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username, password) {
     try {
       console.log('🔐 Tentando fazer login...', { username })
-      const response = await axios.post('http://localhost:8000/api/auth/login/', {
+      // Usando o serviço api centralizado
+      const response = await api.post('/auth/login/', {
         username,
         password
       })
@@ -40,8 +41,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchUser() {
     try {
-      console.log('📡 fetchUser: Importando API...')
-      const api = (await import('../services/api')).default
       console.log('📡 fetchUser: Fazendo requisição para /usuarios/me/')
       const response = await api.get('/usuarios/me/')
       console.log('📡 fetchUser: Resposta recebida:', response.data)
@@ -50,7 +49,9 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('❌ Failed to fetch user:', error)
       console.error('❌ Error response:', error.response?.data)
       console.error('❌ Error status:', error.response?.status)
-      logout()
+      if (error.response?.status === 401) {
+        logout()
+      }
       throw error
     }
   }

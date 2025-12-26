@@ -154,14 +154,83 @@
           />
         </div>
       </div>
+
+      <!-- Seção de Diagnóstico -->
+      <div v-if="form.diagnosticos && form.diagnosticos.length > 0" class="mt-8 pt-6 border-t border-gray-100">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-900 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            Histórico de Diagnósticos
+          </h3>
+          <button 
+            v-if="selectedDiagnosticos.length === 2"
+            type="button"
+            @click="handleCompare"
+            class="px-3 py-1.5 bg-primary-600 text-white text-xs font-bold rounded-lg hover:bg-primary-700 transition-colors flex items-center shadow-sm"
+          >
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            Comparar Selecionados (2)
+          </button>
+          <span v-else-if="form.diagnosticos.length > 1" class="text-xs text-gray-400 font-medium">Selecione 2 para comparar</span>
+        </div>
+        
+        <div v-for="diag in form.diagnosticos" :key="diag.id" class="bg-gray-50 rounded-xl p-4 mb-4 border border-transparent transition-all" :class="{'border-primary-200 ring-2 ring-primary-50 bg-white': selectedDiagnosticos.includes(diag.id)}">
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center">
+              <input 
+                type="checkbox" 
+                :id="'diag-' + diag.id"
+                :value="diag.id"
+                v-model="selectedDiagnosticos"
+                :disabled="selectedDiagnosticos.length >= 2 && !selectedDiagnosticos.includes(diag.id)"
+                class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 mr-3"
+              />
+              <label :for="'diag-' + diag.id" class="text-xs font-bold text-gray-500 cursor-pointer uppercase tracking-wider">
+                Realizado em {{ new Date(diag.data_conclusao).toLocaleDateString('pt-BR') }}
+              </label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div v-for="(data, pilar) in diag.pontuacao_por_pilar" :key="pilar" class="text-center p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+              <div class="text-xs text-gray-500 mb-1 truncate" :title="pilar">{{ pilar }}</div>
+              <div class="text-xl font-black" :style="{ color: data.cor }">{{ data.score }}</div>
+              <div class="w-full h-1 bg-gray-100 rounded-full mt-1">
+                <div class="h-full rounded-full" :style="{ width: `${data.score * 10}%`, backgroundColor: data.cor }"></div>
+              </div>
+            </div>
+          </div>
+
+          <details class="mt-4">
+            <summary class="text-xs font-semibold text-primary-600 cursor-pointer hover:text-primary-700 outline-none">
+              Ver respostas detalhadas
+            </summary>
+            <div class="mt-3 space-y-3">
+              <div v-for="(resp, idx) in diag.respostas_detalhadas" :key="idx" class="text-sm border-l-2 border-primary-200 pl-3 py-1">
+                <div class="font-bold text-gray-700">{{ resp.pergunta }}</div>
+                <div class="text-gray-600 mt-1">
+                  <span class="font-medium text-primary-700">{{ resp.resposta }}</span>
+                  <span class="text-xs text-gray-400 ml-2">({{ resp.pontos }} pts)</span>
+                </div>
+                <div v-if="resp.feedback" class="text-xs text-amber-600 mt-1 italic">
+                  {{ resp.feedback }}
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
     </form>
   </BaseModal>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import BaseModal from './BaseModal.vue'
 import api from '@/services/api'
+
+const router = useRouter()
 
 const props = defineProps({
   show: Boolean,
@@ -172,6 +241,22 @@ const emit = defineEmits(['close', 'saved'])
 
 const loading = ref(false)
 const isEdit = ref(false)
+const selectedDiagnosticos = ref([])
+
+function handleCompare() {
+  if (selectedDiagnosticos.value.length !== 2) return
+
+  const diag1 = form.value.diagnosticos.find(d => d.id === selectedDiagnosticos.value[0])
+  const diag2 = form.value.diagnosticos.find(d => d.id === selectedDiagnosticos.value[1])
+
+  const sorted = [diag1, diag2].sort((a, b) => new Date(a.data_conclusao) - new Date(b.data_conclusao))
+  
+  localStorage.setItem('comparison_diagnosis_result', JSON.stringify(sorted[0]))
+  localStorage.setItem('last_diagnosis_result', JSON.stringify(sorted[1]))
+
+  const url = router.resolve({ name: 'diagnostico-resultado' }).href
+  window.open(url, '_blank')
+}
 
 const form = ref({
   nome_empresa: '',

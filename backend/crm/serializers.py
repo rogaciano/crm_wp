@@ -3,7 +3,10 @@ Serializers para a API do CRM
 """
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from .models import Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade
+from .models import (
+    Canal, User, Lead, Conta, Contato, EstagioFunil, Oportunidade, Atividade,
+    DiagnosticoPilar, DiagnosticoPergunta, DiagnosticoResposta, DiagnosticoResultado
+)
 
 
 class CanalSerializer(serializers.ModelSerializer):
@@ -53,22 +56,74 @@ class UserSerializer(serializers.ModelSerializer):
         return instance
 
 
+# Serializers do Diagnóstico (Precisam vir antes do LeadSerializer)
+
+class DiagnosticoRespostaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiagnosticoResposta
+        fields = ['id', 'texto', 'pontuacao', 'feedback']
+
+
+class DiagnosticoPerguntaSerializer(serializers.ModelSerializer):
+    respostas = DiagnosticoRespostaSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = DiagnosticoPergunta
+        fields = ['id', 'texto', 'ordem', 'ajuda', 'respostas']
+
+
+class DiagnosticoPilarSerializer(serializers.ModelSerializer):
+    perguntas = DiagnosticoPerguntaSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = DiagnosticoPilar
+        fields = ['id', 'nome', 'slug', 'descricao', 'ordem', 'cor', 'perguntas']
+
+
+class DiagnosticoResultadoSerializer(serializers.ModelSerializer):
+    lead_nome = serializers.CharField(source='lead.nome', read_only=True)
+    
+    class Meta:
+        model = DiagnosticoResultado
+        fields = [
+            'id', 'lead', 'lead_nome', 'data_conclusao',
+            'respostas_detalhadas', 'pontuacao_por_pilar'
+        ]
+        read_only_fields = ['data_conclusao']
+
+
+class DiagnosticoPublicSubmissionSerializer(serializers.Serializer):
+    """Serializer para submissão pública do diagnóstico e criação de Lead"""
+    nome = serializers.CharField(max_length=255)
+    email = serializers.EmailField()
+    telefone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    empresa = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    
+    # Lista de IDs das respostas escolhidas
+    respostas_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        min_length=1
+    )
+
+
 class LeadSerializer(serializers.ModelSerializer):
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
+    diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
     
     class Meta:
         model = Lead
         fields = [
             'id', 'nome', 'email', 'telefone', 'empresa', 'cargo',
             'fonte', 'status', 'notas', 'proprietario', 'proprietario_nome',
-            'data_criacao', 'data_atualizacao'
+            'diagnosticos', 'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos']
     
     def create(self, validated_data):
         # Define o proprietário como o usuário logado
-        validated_data['proprietario'] = self.context['request'].user
+        if 'request' in self.context and self.context['request'].user.is_authenticated:
+            validated_data['proprietario'] = self.context['request'].user
         return super().create(validated_data)
 
 
@@ -77,6 +132,7 @@ class ContaSerializer(serializers.ModelSerializer):
     proprietario = serializers.PrimaryKeyRelatedField(read_only=True, required=False)
     total_contatos = serializers.SerializerMethodField()
     total_oportunidades = serializers.SerializerMethodField()
+    diagnosticos = DiagnosticoResultadoSerializer(many=True, read_only=True)
     
     class Meta:
         model = Conta
@@ -84,10 +140,10 @@ class ContaSerializer(serializers.ModelSerializer):
             'id', 'nome_empresa', 'cnpj', 'telefone_principal', 'email',
             'website', 'setor', 'endereco', 'cidade', 'estado', 'cep',
             'notas', 'proprietario', 'proprietario_nome',
-            'total_contatos', 'total_oportunidades',
+            'total_contatos', 'total_oportunidades', 'diagnosticos',
             'data_criacao', 'data_atualizacao'
         ]
-        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
+        read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario', 'diagnosticos']
     
     def get_total_contatos(self, obj):
         return obj.contatos.count()
@@ -96,7 +152,6 @@ class ContaSerializer(serializers.ModelSerializer):
         return obj.oportunidades.count()
     
     def create(self, validated_data):
-        # Define o proprietário como o usuário logado
         validated_data['proprietario'] = self.context['request'].user
         return super().create(validated_data)
 
@@ -117,7 +172,6 @@ class ContatoSerializer(serializers.ModelSerializer):
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
     def create(self, validated_data):
-        # Define o proprietário como o usuário logado
         validated_data['proprietario'] = self.context['request'].user
         return super().create(validated_data)
 
@@ -154,13 +208,11 @@ class OportunidadeSerializer(serializers.ModelSerializer):
         read_only_fields = ['data_criacao', 'data_atualizacao', 'proprietario']
     
     def create(self, validated_data):
-        # Define o proprietário como o usuário logado
         validated_data['proprietario'] = self.context['request'].user
         return super().create(validated_data)
 
 
 class OportunidadeKanbanSerializer(serializers.ModelSerializer):
-    """Serializer simplificado para a visão Kanban"""
     conta_nome = serializers.CharField(source='conta.nome_empresa', read_only=True)
     contato_nome = serializers.CharField(source='contato_principal.nome', read_only=True)
     proprietario_nome = serializers.CharField(source='proprietario.get_full_name', read_only=True)
@@ -194,7 +246,6 @@ class AtividadeSerializer(serializers.ModelSerializer):
 
 
 class LeadConversaoSerializer(serializers.Serializer):
-    """Serializer para conversão de Lead"""
     criar_oportunidade = serializers.BooleanField(default=False)
     nome_oportunidade = serializers.CharField(required=False, allow_blank=True)
     valor_estimado = serializers.DecimalField(

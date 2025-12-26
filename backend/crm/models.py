@@ -334,3 +334,74 @@ class Atividade(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()}: {self.titulo}"
+
+
+class DiagnosticoPilar(models.Model):
+    """Pilar de análise do diagnóstico (ex: Produção, Vendas, Financeiro)"""
+    nome = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    descricao = models.TextField(null=True, blank=True)
+    ordem = models.PositiveIntegerField(default=0)
+    cor = models.CharField(max_length=7, default='#3B82F6', help_text='Cor em hexadecimal para o gráfico')
+
+    class Meta:
+        verbose_name = 'Pilar do Diagnóstico'
+        verbose_name_plural = 'Pilares do Diagnóstico'
+        ordering = ['ordem']
+
+    def __str__(self):
+        return self.nome
+
+
+class DiagnosticoPergunta(models.Model):
+    """Pergunta do diagnóstico vinculada a um pilar"""
+    pilar = models.ForeignKey(DiagnosticoPilar, on_delete=models.CASCADE, related_name='perguntas')
+    texto = models.TextField()
+    ordem = models.PositiveIntegerField(default=0)
+    ajuda = models.TextField(null=True, blank=True, help_text='Texto de ajuda ou explicação da pergunta')
+
+    class Meta:
+        verbose_name = 'Pergunta do Diagnóstico'
+        verbose_name_plural = 'Perguntas do Diagnóstico'
+        ordering = ['pilar__ordem', 'ordem']
+
+    def __str__(self):
+        return f"[{self.pilar.nome}] {self.texto[:50]}..."
+
+
+class DiagnosticoResposta(models.Model):
+    """Opção de resposta para uma pergunta com sua respectiva pontuação"""
+    pergunta = models.ForeignKey(DiagnosticoPergunta, on_delete=models.CASCADE, related_name='respostas')
+    texto = models.TextField()
+    pontuacao = models.IntegerField(default=0, help_text='Pontuação de 0 a 10')
+    feedback = models.TextField(null=True, blank=True, help_text='Feedback específico para esta resposta')
+
+    class Meta:
+        verbose_name = 'Resposta do Diagnóstico'
+        verbose_name_plural = 'Respostas do Diagnóstico'
+        ordering = ['pergunta', 'pontuacao']
+
+    def __str__(self):
+        return f"{self.texto[:30]} ({self.pontuacao} pts)"
+
+
+class DiagnosticoResultado(models.Model):
+    """Resultado final do diagnóstico vinculado a um Lead ou Conta"""
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='diagnosticos', null=True, blank=True)
+    conta = models.ForeignKey(Conta, on_delete=models.CASCADE, related_name='diagnosticos', null=True, blank=True)
+    data_conclusao = models.DateTimeField(auto_now_add=True)
+    
+    # Armazena as respostas brutas para histórico
+    respostas_detalhadas = models.JSONField(help_text='JSON com as perguntas e respostas escolhidas')
+    
+    # Armazena a pontuação processada por pilar para facilitar o gráfico
+    pontuacao_por_pilar = models.JSONField(help_text='JSON com {pilar_nome: score}')
+
+    class Meta:
+        verbose_name = 'Resultado do Diagnóstico'
+        verbose_name_plural = 'Resultados do Diagnóstico'
+        ordering = ['-data_conclusao']
+
+    def __str__(self):
+        entidade = self.lead.nome if self.lead else (self.conta.nome_empresa if self.conta else "N/A")
+        return f"Diagnóstico: {entidade} em {self.data_conclusao.strftime('%d/%m/%Y')}"

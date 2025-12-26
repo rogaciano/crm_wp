@@ -11,6 +11,18 @@ const router = createRouter({
       meta: { requiresAuth: false }
     },
     {
+      path: '/diagnostico',
+      name: 'diagnostico',
+      component: () => import('@/views/public/DiagnosisView.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
+      path: '/diagnostico/resultado',
+      name: 'diagnostico-resultado',
+      component: () => import('@/views/public/DiagnosisResultView.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },

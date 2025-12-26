@@ -1,37 +1,53 @@
-# Sistema CRM de Vendas
+# 🚀 Sistema CRM de Vendas
 
-Sistema completo de CRM focado em gestão de funil de vendas com hierarquia de canais.
+> Sistema completo de CRM focado em gestão de funil de vendas com hierarquia de canais, desenvolvido com Django REST Framework e Vue.js 3.
 
-## 📋 Funcionalidades
+[![Status](https://img.shields.io/badge/status-pronto-brightgreen)]()
+[![Django](https://img.shields.io/badge/Django-4.2-green)]()
+[![Vue.js](https://img.shields.io/badge/Vue.js-3.3-blue)]()
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-orange)]()
 
-### Principais
-- **Quadro Kanban** para visualização do funil de vendas
-- **Gestão de Leads** com conversão para Contas/Contatos/Oportunidades
-- **Gestão de Contas** (empresas)
-- **Gestão de Contatos** (pessoas)
-- **Gestão de Oportunidades** (negócios)
-- **Gestão de Atividades** (tarefas, ligações, reuniões, e-mails)
+---
 
-### Hierarquia de Acesso
-1. **Administrador**: Acesso total + gerenciamento de usuários, canais e configurações
-2. **Responsável de Canal**: Visualiza e gerencia dados de todos os vendedores do seu canal
-3. **Vendedor**: Visualiza e gerencia apenas seus próprios dados
+## 📋 Funcionalidades Principais
+
+### 🎯 Core Features
+- ✅ **Quadro Kanban Drag & Drop** - Visualização e gestão do funil de vendas
+- ✅ **Conversão de Leads** - Transforme leads em Contas + Contatos + Oportunidades automaticamente
+- ✅ **Gestão de Contas** - Cadastro completo de empresas com detalhes e relacionamentos
+- ✅ **Gestão de Contatos** - Pessoas vinculadas às contas
+- ✅ **Gestão de Oportunidades** - Negócios com valores, probabilidades e estágios
+- ✅ **Gestão de Atividades** - Tarefas, ligações, reuniões, e-mails e notas
+- ✅ **Sistema de Canais** - Organização por canais de vendas regionais
+- ✅ **Hierarquia de Permissões** - 3 níveis de acesso (Admin, Responsável, Vendedor)
+
+### 🔐 Hierarquia de Acesso
+| Perfil | Permissões |
+|--------|-----------|
+| **Administrador** | Acesso total + gestão de usuários, canais e configurações do sistema |
+| **Responsável de Canal** | Visualiza e gerencia dados de todos os vendedores do seu canal |
+| **Vendedor** | Visualiza e gerencia apenas seus próprios dados (leads, oportunidades, etc.) |
 
 ## 🛠 Stack Tecnológica
 
 ### Backend
-- Python 3.11+
-- Django 4.2
-- Django REST Framework
-- MySQL (WAMP)
-- JWT Authentication
+- **Python** 3.11+
+- **Django** 4.2.7
+- **Django REST Framework** 3.14.0
+- **MySQL** 8.0+ (via WAMP)
+- **PyMySQL** 1.1.0 (driver Python puro)
+- **JWT Authentication** (djangorestframework-simplejwt)
+- **DRF Spectacular** (documentação Swagger/OpenAPI)
+- **Django CORS Headers** (integração frontend/backend)
 
 ### Frontend
-- Vue.js 3
-- Vue Router
-- Pinia (State Management)
-- Tailwind CSS
-- Vite
+- **Vue.js** 3.3.8 (Composition API)
+- **Vue Router** 4.2.5
+- **Pinia** 2.1.7 (State Management)
+- **Tailwind CSS** 3.3.5
+- **Vite** 5.0.2
+- **Axios** 1.6.2 (HTTP client)
+- **Vue Draggable Next** (Kanban drag & drop)
 
 ## 🚀 Instalação e Configuração
 
@@ -44,7 +60,7 @@ Sistema completo de CRM focado em gestão de funil de vendas com hierarquia de c
 
 ```powershell
 # Navegar para o diretório backend
-cd backend
+cd c:\projetos\crm_wp\backend
 
 # Criar ambiente virtual
 python -m venv venv
@@ -55,19 +71,22 @@ python -m venv venv
 # Instalar dependências
 pip install -r requirements.txt
 
-# Copiar arquivo de configuração
+# Criar arquivo .env (copie e edite)
 copy .env.example .env
+# Edite o .env com suas configurações do MySQL
 
-# Editar .env com suas configurações (DB_NAME, DB_USER, DB_PASSWORD, etc.)
-
-# Criar banco de dados MySQL (WAMP)
-# Acesse http://localhost/phpmyadmin/
-# Crie o banco: crm_db
-# Ou via console MySQL: CREATE DATABASE crm_db;
+# Criar banco de dados MySQL
+# Opção 1: Via phpMyAdmin (http://localhost/phpmyadmin/)
+#   - Crie o banco: crm_db
+# Opção 2: Via console MySQL:
+#   CREATE DATABASE crm_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 # Executar migrações
-python manage.py makemigrations
 python manage.py migrate
+
+# Criar dados iniciais (canais, estágios, usuários de teste)
+python manage.py shell
+# Execute o script de dados iniciais ou crie manualmente
 
 # Criar superusuário
 python manage.py createsuperuser
@@ -76,54 +95,110 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-O backend estará disponível em: `http://localhost:8000`
+✅ **Backend disponível em:** `http://localhost:8000`
+
+#### Configuração do arquivo `.env`
+```env
+DEBUG=True
+SECRET_KEY=your-secret-key-here-change-in-production
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database MySQL (WAMP)
+DB_NAME=crm_db
+DB_USER=root
+DB_PASSWORD=
+DB_HOST=localhost
+DB_PORT=3306
+
+# CORS
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8080
+```
 
 ### 2. Configurar Frontend
 
 ```powershell
 # Navegar para o diretório frontend
-cd frontend
+cd c:\projetos\crm_wp\frontend
 
 # Instalar dependências
 npm install
 
-# Copiar arquivo de configuração
+# Criar arquivo .env (se necessário)
 copy .env.example .env
 
 # Executar servidor de desenvolvimento
 npm run dev
 ```
 
-O frontend estará disponível em: `http://localhost:5173`
+✅ **Frontend disponível em:** `http://localhost:5173`
 
-## 📊 Endpoints da API
+#### Scripts disponíveis
+```powershell
+npm run dev      # Servidor de desenvolvimento
+npm run build    # Build para produção
+npm run preview  # Preview do build de produção
+```
 
-Documentação interativa disponível em:
-- Swagger UI: `http://localhost:8000/api/docs/`
-- ReDoc: `http://localhost:8000/api/schema/`
+## 📊 API REST
 
-### Principais Endpoints
+### 📖 Documentação Interativa
+- **Swagger UI:** `http://localhost:8000/api/docs/`
+- **ReDoc:** `http://localhost:8000/api/schema/redoc/`
+- **Django Admin:** `http://localhost:8000/admin/`
 
-#### Autenticação
-- `POST /api/auth/login/` - Login (retorna JWT token)
-- `POST /api/auth/refresh/` - Refresh token
+### 🔑 Autenticação
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/api/auth/login/` | Login (retorna access + refresh token JWT) |
+| POST | `/api/auth/refresh/` | Renovar access token |
 
-#### Módulos
-- `GET/POST /api/leads/` - Leads
-- `POST /api/leads/{id}/converter/` - Converter lead
-- `GET/POST /api/contas/` - Contas
-- `GET /api/contas/{id}/contatos/` - Contatos da conta
-- `GET /api/contas/{id}/oportunidades/` - Oportunidades da conta
-- `GET/POST /api/contatos/` - Contatos
-- `GET/POST /api/oportunidades/` - Oportunidades
-- `GET /api/oportunidades/kanban/` - Visão Kanban
-- `PATCH /api/oportunidades/{id}/mudar_estagio/` - Mover no Kanban
-- `GET/POST /api/atividades/` - Atividades
+### 📋 Endpoints Principais
 
-#### Admin (apenas para perfil ADMIN)
-- `GET/POST /api/canais/` - Canais
-- `GET/POST /api/usuarios/` - Usuários
-- `GET/POST /api/estagios-funil/` - Estágios do funil
+#### Leads
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/leads/` | Listar leads (com filtros e busca) |
+| POST | `/api/leads/` | Criar novo lead |
+| GET | `/api/leads/{id}/` | Detalhes do lead |
+| PUT/PATCH | `/api/leads/{id}/` | Atualizar lead |
+| DELETE | `/api/leads/{id}/` | Deletar lead |
+| POST | `/api/leads/{id}/converter/` | **Converter lead** em Conta + Contato + Oportunidade |
+
+#### Contas (Empresas)
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/contas/` | Listar contas |
+| POST | `/api/contas/` | Criar conta |
+| GET | `/api/contas/{id}/` | Detalhes da conta |
+| GET | `/api/contas/{id}/contatos/` | Contatos vinculados |
+| GET | `/api/contas/{id}/oportunidades/` | Oportunidades vinculadas |
+
+#### Contatos (Pessoas)
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/contatos/` | Listar contatos |
+| POST | `/api/contatos/` | Criar contato (requer conta_id) |
+
+#### Oportunidades (Negócios)
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/oportunidades/` | Listar oportunidades |
+| POST | `/api/oportunidades/` | Criar oportunidade |
+| GET | `/api/oportunidades/kanban/` | **Visão Kanban** (agrupado por estágio) |
+| PATCH | `/api/oportunidades/{id}/mudar_estagio/` | **Mover card** no Kanban |
+
+#### Atividades
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/atividades/` | Listar atividades |
+| POST | `/api/atividades/` | Criar atividade (tarefa, ligação, reunião, etc.) |
+
+#### Admin (apenas ADMIN)
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET/POST | `/api/canais/` | Gestão de canais |
+| GET/POST | `/api/usuarios/` | Gestão de usuários |
+| GET/POST | `/api/estagios-funil/` | Configuração dos estágios do funil |
 
 ## 🎯 Fluxo de Uso
 
@@ -140,22 +215,31 @@ Documentação interativa disponível em:
 4. Registrar Atividades (ligações, reuniões, tarefas)
 5. Acompanhar evolução das vendas
 
-## 🔐 Dados Iniciais para Teste
+## 🔐 Dados de Teste
 
-Após criar o superusuário, você pode criar:
+### Usuários Criados (se usar script de dados iniciais)
+| Usuário | Senha | Perfil | Canal |
+|---------|-------|--------|-------|
+| admin | admin123 | Administrador | - |
+| resp_sul | resp123 | Responsável | Canal Sul |
+| vendedor1 | vend123 | Vendedor | Canal Sul |
+| vendedor2 | vend123 | Vendedor | Canal Sul |
 
 ### Canais de Exemplo
-- Canal Sul
-- Canal Norte
-- Canal Leste
+- **Canal Sul**
+- **Canal Norte**
+- **Canal Leste**
+- **Canal Oeste**
 
 ### Estágios do Funil Padrão
-1. Prospecção (Aberto)
-2. Qualificação (Aberto)
-3. Proposta (Aberto)
-4. Negociação (Aberto)
-5. Fechado - Ganho (Ganho)
-6. Fechado - Perdido (Perdido)
+| Ordem | Nome | Tipo | Cor |
+|-------|------|------|-----|
+| 1 | Prospecção | Aberto | blue |
+| 2 | Qualificação | Aberto | yellow |
+| 3 | Proposta | Aberto | purple |
+| 4 | Negociação | Aberto | orange |
+| 5 | Fechado - Ganho | Ganho | green |
+| 6 | Fechado - Perdido | Perdido | red |
 
 ## 📁 Estrutura do Projeto
 
